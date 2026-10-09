@@ -27,4 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.start()
         updater.checkIfStale()
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        state.stop()
+    }
 }

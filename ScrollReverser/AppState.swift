@@ -10,6 +10,8 @@ final class AppState: ObservableObject {
     private enum Key {
         static let reverseMouse = "reverseMouse"
         static let reverseTrackpad = "reverseTrackpad"
+        static let linearMouseMovement = "linearMouseMovement"
+        static let mouseSensitivity = "mouseSensitivity"
     }
 
     @Published var reverseMouse: Bool {
@@ -20,14 +22,36 @@ final class AppState: ObservableObject {
         didSet { preferenceChanged(Key.reverseTrackpad, reverseTrackpad) }
     }
 
+    /// Doesn't need Accessibility access, so it works independently of scroll reversal.
+    @Published var linearMouseMovement: Bool {
+        didSet {
+            defaults.set(linearMouseMovement, forKey: Key.linearMouseMovement)
+            updateMouseMovement()
+        }
+    }
+
+    @Published var mouseSensitivity: Double {
+        didSet {
+            defaults.set(mouseSensitivity, forKey: Key.mouseSensitivity)
+            updateMouseMovement()
+        }
+    }
+
+    /// Linear scaling with a custom multiplier needs macOS 14. Older systems get raw 1:1 movement.
+    var supportsMouseSensitivity: Bool {
+        if #available(macOS 14, *) { true } else { false }
+    }
+
     @Published private(set) var isAccessibilityGranted = AccessibilityPermission.isGranted
     @Published private(set) var loginItemStatus = SMAppService.mainApp.status
 
-    var isActive: Bool { isAccessibilityGranted && (reverseMouse || reverseTrackpad) }
+    var isActive: Bool { (isAccessibilityGranted && (reverseMouse || reverseTrackpad)) || linearMouseMovement }
+    var isWaitingForPermission: Bool { !isAccessibilityGranted && (reverseMouse || reverseTrackpad) }
     var launchAtLogin: Bool { loginItemStatus == .enabled }
 
     private let defaults: UserDefaults
     private let eventTap = ScrollEventTap()
+    private let mouseMovement = MouseMovementController()
     private var permissionWatcher: Task<Void, Never>?
 
     init(defaults: UserDefaults = .standard) {
@@ -35,6 +59,12 @@ final class AppState: ObservableObject {
         defaults.register(defaults: [Key.reverseMouse: true, Key.reverseTrackpad: false])
         reverseMouse = defaults.bool(forKey: Key.reverseMouse)
         reverseTrackpad = defaults.bool(forKey: Key.reverseTrackpad)
+        linearMouseMovement = defaults.bool(forKey: Key.linearMouseMovement)
+        // Start from the current System Settings speed so turning this on doesn't jump.
+        let sensitivity = defaults.object(forKey: Key.mouseSensitivity) as? Double
+            ?? mouseMovement.systemTrackingSpeed ?? 1
+        mouseSensitivity = min(max(sensitivity, MouseMovementController.sensitivityRange.lowerBound),
+                               MouseMovementController.sensitivityRange.upperBound)
 
         eventTap.onPermissionLost = { [weak self] in
             self?.refreshPermission()
@@ -46,6 +76,12 @@ final class AppState: ObservableObject {
             requestAccessibility()
         }
         updateEventTap()
+        updateMouseMovement()
+    }
+
+    /// Returns mice to the System Settings behavior.
+    func stop() {
+        mouseMovement.restore()
     }
 
     /// Re-reads state the user may have changed in System Settings while the app was running.
@@ -90,6 +126,10 @@ final class AppState: ObservableObject {
             watchForPermission()
         }
         updateEventTap()
+    }
+
+    private func updateMouseMovement() {
+        mouseMovement.update(enabled: linearMouseMovement, sensitivity: mouseSensitivity)
     }
 
     /// The tap only runs while it has work to do, so idle scrolling stays untouched.

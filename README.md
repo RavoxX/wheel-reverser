@@ -2,7 +2,8 @@
 
 # Scroll Reverser
 
-A small menu bar app that reverses the scroll direction of your mouse and trackpad independently.
+A small menu bar app that reverses the scroll direction of your mouse and trackpad independently,
+and can give mice linear movement without macOS pointer acceleration, with adjustable sensitivity.
 Requires macOS 13 or later.
 
 ## Install
@@ -23,3 +24,8 @@ scripts/release.sh
 
 `scripts/release.sh --publish` also creates the GitHub release for the current version.
 
+## Acknowledgements
+
+Linear mouse movement is adapted from [LinearMouse](https://github.com/linearmouse/linearmouse)
+(MIT License, Copyright (c) 2021-2026 LinearMouse). The license notice is included in
+`ScrollReverser/MouseMovementController.swift`.

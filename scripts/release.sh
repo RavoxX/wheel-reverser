@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 
 VERSION=$(xcodebuild -project ScrollReverser.xcodeproj -target ScrollReverser -configuration Release -showBuildSettings 2>/dev/null \
     | awk '$1 == "MARKETING_VERSION" { print $3; exit }')
-OUT=build/release
+OUT=build.noindex/release
 APP="$OUT/DerivedData/Build/Products/Release/Scroll Reverser.app"
 DMG="$OUT/ScrollReverser-$VERSION.dmg"
 

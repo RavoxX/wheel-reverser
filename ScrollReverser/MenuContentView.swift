@@ -13,7 +13,7 @@ struct MenuContentView: View {
                 permissionCard
             }
 
-            SettingsCard {
+            SettingsSection("Scrolling", footer: "Reversal applies on top of the Natural Scrolling setting in System Settings.") {
                 SettingsToggleRow(
                     title: "Reverse Mouse Scrolling",
                     symbol: "computermouse.fill",
@@ -29,7 +29,18 @@ struct MenuContentView: View {
                 )
             }
 
-            SettingsCard {
+            SettingsSection("Mouse Movement", footer: mouseMovementFooter) {
+                SettingsToggleRow(
+                    title: "Linear Mouse Movement",
+                    symbol: "cursorarrow.motionlines",
+                    tint: .teal,
+                    isOn: $state.linearMouseMovement
+                )
+                SettingsDivider()
+                sensitivityRow
+            }
+
+            SettingsSection("General") {
                 SettingsToggleRow(
                     title: "Launch at Login",
                     symbol: "power",
@@ -49,14 +60,9 @@ struct MenuContentView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                 }
+                SettingsDivider()
+                updateRow
             }
-
-            updateCard
-
-            Text("Reversal applies on top of the Natural Scrolling setting in System Settings.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
 
             Divider()
 
@@ -99,38 +105,57 @@ struct MenuContentView: View {
     }
 
     private var statusText: String {
-        if !state.isAccessibilityGranted { return "Waiting for permission" }
+        if state.isWaitingForPermission { return "Waiting for permission" }
         return state.isActive ? "Active" : "Paused"
     }
 
-    private var updateCard: some View {
-        SettingsCard {
-            HStack(spacing: 8) {
-                SymbolTile(symbol: "arrow.down", tint: .green)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Software Update")
-                    Text(updateStatusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                switch updater.phase {
-                case .checking, .installing:
-                    ProgressView().controlSize(.small)
-                case .available:
-                    Button("Update") { Task { await updater.install() } }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                default:
-                    Button("Check") { Task { await updater.check() } }
-                        .controlSize(.small)
-                }
+    private var updateRow: some View {
+        HStack(spacing: 8) {
+            SymbolTile(symbol: "arrow.down", tint: .green)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Software Update")
+                Text(updateStatusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            Spacer()
+            switch updater.phase {
+            case .checking, .installing:
+                ProgressView().controlSize(.small)
+            case .available:
+                Button("Update") { Task { await updater.install() } }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            default:
+                Button("Check") { Task { await updater.check() } }
+                    .controlSize(.small)
+            }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+    }
+
+    private var sensitivityRow: some View {
+        HStack(spacing: 8) {
+            SymbolTile(symbol: "gauge.with.dots.needle.33percent", tint: .orange)
+            Text("Sensitivity")
+            Slider(value: $state.mouseSensitivity, in: MouseMovementController.sensitivityRange)
+                .controlSize(.small)
+            Text(state.mouseSensitivity, format: .number.precision(.fractionLength(2)))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 32, alignment: .trailing)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .disabled(!state.linearMouseMovement || !state.supportsMouseSensitivity)
+    }
+
+    private var mouseMovementFooter: String {
+        let base = "Turns off macOS pointer acceleration for mice. Trackpads are not affected."
+        return state.supportsMouseSensitivity ? base : base + " Sensitivity requires macOS 14 or later."
     }
 
     private var updateStatusText: String {
@@ -171,6 +196,36 @@ struct MenuContentView: View {
 }
 
 // MARK: - Settings-style building blocks
+
+/// A titled group of rows, like a section in System Settings.
+private struct SettingsSection<Content: View>: View {
+    let title: String
+    var footer: String?
+    @ViewBuilder var content: Content
+
+    init(_ title: String, footer: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.footer = footer
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+            SettingsCard { content }
+            if let footer {
+                Text(footer)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 2)
+            }
+        }
+    }
+}
 
 private struct SettingsCard<Content: View>: View {
     @ViewBuilder var content: Content
