@@ -14,7 +14,7 @@ final class ScrollEventTap {
 
     private var machPort: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var classifier = ScrollSourceClassifier()
+    private let classifier = ScrollSourceClassifier()
 
     /// Returns `false` if the tap couldn't be created, which usually means missing permission.
     @discardableResult
@@ -51,7 +51,6 @@ final class ScrollEventTap {
         CFMachPortInvalidate(port)
         machPort = nil
         runLoopSource = nil
-        classifier = ScrollSourceClassifier()
     }
 
     fileprivate func handle(_ type: CGEventType, _ event: CGEvent) {

@@ -127,19 +127,22 @@ struct PointerService {
         IOHIDServiceClientGetRegistryID(client) as? UInt64
     }
 
-    /// Mice and other pointers, excluding trackpads. Magic Mouse is a multitouch digitizer too,
-    /// so it's matched by ID first (as in LinearMouse's `Device.detectCategory`).
+    /// Mice and other pointers, excluding trackpads.
     var isMouse: Bool {
-        guard conforms(to: kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse)
-            || conforms(to: kHIDPage_GenericDesktop, kHIDUsage_GD_Pointer)
-        else { return false }
+        (conforms(to: kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse)
+            || conforms(to: kHIDPage_GenericDesktop, kHIDUsage_GD_Pointer))
+            && !isTrackpad
+    }
 
+    /// Magic Mouse is a multitouch digitizer too, so it's matched by ID first
+    /// (as in LinearMouse's `Device.detectCategory`).
+    var isTrackpad: Bool {
         if let vendorID = intProperty(kIOHIDVendorIDKey), let productID = intProperty(kIOHIDProductIDKey),
            Self.appleVendorIDs.contains(vendorID), Self.magicMouseProductIDs.contains(productID) {
-            return true
+            return false
         }
-        return !conforms(to: kHIDPage_Digitizer, kHIDUsage_Dig_TouchPad)
-            && accelerationKey != kIOHIDTrackpadAccelerationType
+        return conforms(to: kHIDPage_Digitizer, kHIDUsage_Dig_TouchPad)
+            || accelerationKey == kIOHIDTrackpadAccelerationType
     }
 
     /// Present (macOS 14+) only on services whose filter supports linear scaling.
@@ -184,7 +187,7 @@ struct PointerService {
 /// The HID event system client, plus the private functions LinearMouse's PointerKit uses for
 /// full property access and change notifications. Each falls back gracefully when missing.
 @MainActor
-private final class HIDEventSystem {
+final class HIDEventSystem {
     private typealias CreateFunction = @convention(c) (CFAllocator?) -> Unmanaged<IOHIDEventSystemClient>?
     private typealias SetMatchingFunction = @convention(c) (IOHIDEventSystemClient, CFArray) -> Void
     private typealias ScheduleFunction = @convention(c) (IOHIDEventSystemClient, CFRunLoop, CFString) -> Void
@@ -221,6 +224,10 @@ private final class HIDEventSystem {
     func services() -> [PointerService] {
         let clients = IOHIDEventSystemClientCopyServices(client) as? [IOHIDServiceClient] ?? []
         return clients.map(PointerService.init)
+    }
+
+    func service(registryID: UInt64) -> PointerService? {
+        services().first { $0.registryID == registryID }
     }
 
     func systemFixedProperty(_ key: String) -> Double? {
