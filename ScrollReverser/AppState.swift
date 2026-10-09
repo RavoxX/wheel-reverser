@@ -95,6 +95,13 @@ final class AppState: ObservableObject {
         watchForPermission()
     }
 
+    /// Replaces a stale Accessibility entry from an older build with one for this build.
+    func resetAccessibility() {
+        AccessibilityPermission.reset()
+        requestAccessibility()
+        AccessibilityPermission.openSystemSettings()
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         do {
             if enabled {

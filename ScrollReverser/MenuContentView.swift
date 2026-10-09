@@ -181,8 +181,16 @@ struct MenuContentView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Text("Already enabled there? That entry belongs to an older version. Click Reset Access, then turn Scroll Reverser on again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Spacer()
+                    Button("Reset Access") {
+                        state.resetAccessibility()
+                    }
+                    .controlSize(.small)
                     Button("Open System Settings") {
                         state.requestAccessibility()
                         AccessibilityPermission.openSystemSettings()
